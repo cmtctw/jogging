@@ -5,14 +5,22 @@ import { metronome } from './services/audioService';
 import { WorkoutStatus } from './types';
 import { GoogleGenAI } from "@google/genai";
 
-// AI Coach logic
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// 安全地獲取 API Key，防止在瀏覽器環境中 process 未定義導致崩潰
+const getApiKey = () => {
+  try {
+    return (typeof process !== 'undefined' && process.env?.API_KEY) ? process.env.API_KEY : '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const apiKey = getApiKey();
+const ai = new GoogleGenAI({ apiKey });
 
 const App: React.FC = () => {
   // Config state
   const [duration, setDuration] = useState(30);
   const [bpm, setBpm] = useState(180);
-  // 預設改為一個常用的超慢跑教學影片
   const [youtubeUrl, setYoutubeUrl] = useState('https://www.youtube.com/watch?v=n_vM68cQ49k');
   const [embedUrl, setEmbedUrl] = useState('');
 
@@ -24,11 +32,8 @@ const App: React.FC = () => {
 
   const timerRef = useRef<number | null>(null);
 
-  // 更強大的 YouTube 網址解析器
   const parseYoutubeUrl = useCallback((url: string) => {
     if (!url) return '';
-    
-    // 處理標準網址、行動版網址、短網址
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = url.match(regExp);
     const videoId = (match && match[7].length === 11) ? match[7] : null;
@@ -36,17 +41,13 @@ const App: React.FC = () => {
     if (videoId) {
       return `https://www.youtube.com/embed/${videoId}?rel=0&enablejsapi=1`;
     }
-
-    // 額外處理 YouTube Shorts
     const shortsMatch = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
     if (shortsMatch) {
       return `https://www.youtube.com/embed/${shortsMatch[1]}?rel=0&enablejsapi=1`;
     }
-
     return '';
   }, []);
 
-  // 當網址變動或點擊更新時觸發
   const updateVideo = () => {
     const newEmbed = parseYoutubeUrl(youtubeUrl);
     setEmbedUrl(newEmbed);
@@ -54,6 +55,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     updateVideo();
+    console.log("App Mounted - Visual confirmation in console");
   }, [youtubeUrl, parseYoutubeUrl]);
 
   useEffect(() => {
@@ -74,7 +76,7 @@ const App: React.FC = () => {
   }, [status]);
 
   const fetchCoachTip = async () => {
-    if (!process.env.API_KEY) return;
+    if (!apiKey) return;
     setIsAiLoading(true);
     try {
       const response = await ai.models.generateContent({
@@ -153,7 +155,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 w-full max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-8">
-        
         <div className="lg:col-span-8 flex flex-col gap-6">
           <div className="flex-1 bg-white rounded-[2.5rem] overflow-hidden border border-[#e6dec3] shadow-md relative group min-h-[450px]">
             {embedUrl ? (
@@ -170,8 +171,8 @@ const App: React.FC = () => {
                 <div className="w-20 h-20 bg-[#f5ecd5] rounded-full flex items-center justify-center mb-6 shadow-inner">
                   <Youtube className="w-10 h-10 text-[#d4ccb0]" />
                 </div>
-                <h3 className="text-xl font-semibold text-[#8c856e] mb-2">無法解析影片網址</h3>
-                <p className="text-[#a8a29e] max-w-sm">請確認右側輸入的是正確的 YouTube 影片連結。</p>
+                <h3 className="text-xl font-semibold text-[#8c856e] mb-2">等待載入影片</h3>
+                <p className="text-[#a8a29e] max-w-sm">請貼上正確的 YouTube 影片連結。</p>
               </div>
             )}
             
@@ -301,15 +302,15 @@ const App: React.FC = () => {
             <div className="space-y-5">
               <div className="flex gap-4 items-center">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sm font-bold text-[#8b9a47] shrink-0 border border-[#e6dec3]">1</div>
-                <p className="text-xs text-[#78716c] leading-relaxed">前腳掌著地，隨後腳跟落地，<br/>保護您的關節。</p>
+                <p className="text-xs text-[#78716c] leading-relaxed">前腳掌著地，隨後腳跟落地，保護您的關節。</p>
               </div>
               <div className="flex gap-4 items-center">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sm font-bold text-[#8b9a47] shrink-0 border border-[#e6dec3]">2</div>
-                <p className="text-xs text-[#78716c] leading-relaxed">膝蓋保持微彎狀態，<br/>不要刻意繃緊蹬直。</p>
+                <p className="text-xs text-[#78716c] leading-relaxed">膝蓋保持微彎狀態，不要刻意繃緊蹬直。</p>
               </div>
               <div className="flex gap-4 items-center">
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-sm font-bold text-[#8b9a47] shrink-0 border border-[#e6dec3]">3</div>
-                <p className="text-xs text-[#78716c] leading-relaxed">保持微笑，呼吸順暢，<br/>能輕鬆交談的速度最合適。</p>
+                <p className="text-xs text-[#78716c] leading-relaxed">保持微笑，呼吸順暢，能輕鬆交談的速度最合適。</p>
               </div>
             </div>
           </div>
